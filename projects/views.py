@@ -1,161 +1,135 @@
-from http import HTTPStatus
+import json
 
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_GET, require_POST
 
 from .forms import ProjectForm
-from .mixins import OwnerRequiredMixin
-from .models import Project, ProjectStatus
-
-PAGINATE_BY = 12
-ERROR_STATUS = "error"
-OK_STATUS = "ok"
-METHOD_NOT_ALLOWED_MESSAGE = "Метод не поддерживается"
-ACCESS_DENIED_MESSAGE = "Нет доступа"
-PROJECT_ALREADY_CLOSED_MESSAGE = "Проект уже закрыт"
+from .models import Project, Skill
 
 
-class ProjectListView(ListView):
-    model = Project
-    template_name = "projects/project_list.html"
-    context_object_name = "projects"
-    paginate_by = PAGINATE_BY
-
-    def get_queryset(self):
-        return (
-            Project.objects.select_related("owner")
-            .prefetch_related("participants")
-            .order_by("-created_at")
-        )
-
-
-class FavoriteProjectListView(LoginRequiredMixin, ListView):
-    model = Project
-    template_name = "projects/favorite_projects.html"
-    context_object_name = "projects"
-    paginate_by = PAGINATE_BY
-
-    def get_queryset(self):
-        return (
-            self.request.user.favorites.select_related("owner")
-            .prefetch_related("participants")
-            .order_by("-created_at")
-        )
-
-
-class ProjectDetailView(DetailView):
-    model = Project
-    template_name = "projects/project-details.html"
-    context_object_name = "project"
-
-    def get_queryset(self):
-        return Project.objects.select_related("owner").prefetch_related("participants")
-
-
-class ProjectCreateView(LoginRequiredMixin, CreateView):
-    model = Project
-    form_class = ProjectForm
-    template_name = "projects/create-project.html"
-
-    def form_valid(self, form):
-        form.instance.owner = self.request.user
-        response = super().form_valid(form)
-        self.object.participants.add(self.request.user)
-        return response
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["is_edit"] = False
-        return context
-
-
-class ProjectUpdateView(LoginRequiredMixin, OwnerRequiredMixin, UpdateView):
-    model = Project
-    form_class = ProjectForm
-    template_name = "projects/create-project.html"
-    context_object_name = "project"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["is_edit"] = True
-        return context
-
-
-@login_required
-def complete_project(request, pk):
-    if request.method != "POST":
-        return JsonResponse(
-            {"status": ERROR_STATUS, "message": METHOD_NOT_ALLOWED_MESSAGE},
-            status=HTTPStatus.METHOD_NOT_ALLOWED,
-        )
-
-    project = get_object_or_404(Project, pk=pk)
-
-    if project.owner != request.user:
-        return JsonResponse(
-            {"status": ERROR_STATUS, "message": ACCESS_DENIED_MESSAGE},
-            status=HTTPStatus.FORBIDDEN,
-        )
-
-    if project.status != ProjectStatus.OPEN:
-        return JsonResponse(
-            {"status": ERROR_STATUS, "message": PROJECT_ALREADY_CLOSED_MESSAGE},
-            status=HTTPStatus.BAD_REQUEST,
-        )
-
-    project.status = ProjectStatus.CLOSED
-    project.save(update_fields=["status"])
-
-    return JsonResponse(
-        {"status": OK_STATUS, "project_status": ProjectStatus.CLOSED},
-        status=HTTPStatus.OK,
+def project_list(request):
+    projects = Project.objects.select_related("owner").prefetch_related("participants", "liked_by")
+    active_skill = request.GET.get("skill")
+    if active_skill:
+        projects = projects.filter(skills__name=active_skill)
+    paginator = Paginator(projects.distinct(), 12)
+    page = paginator.get_page(request.GET.get("page"))
+    return render(
+        request,
+        "projects/project_list.html",
+        {
+            "projects": page,
+            "page_obj": page,
+            "active_skill": active_skill,
+            "all_skills": Skill.objects.values_list("name", flat=True),
+        },
     )
 
 
+def project_detail(request, pk):
+    project = get_object_or_404(
+        Project.objects.select_related("owner").prefetch_related("participants", "skills"),
+        pk=pk,
+    )
+    return render(request, "projects/project-details.html", {"project": project})
+
+
 @login_required
+def create_project(request):
+    form = ProjectForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        project = form.save(commit=False)
+        project.owner = request.user
+        project.save()
+        return redirect("projects:detail", pk=project.pk)
+    return render(request, "projects/create-project.html", {"form": form, "is_edit": False})
+
+
+@login_required
+def edit_project(request, pk):
+    project = get_object_or_404(Project, pk=pk, owner=request.user)
+    form = ProjectForm(request.POST or None, instance=project)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect("projects:detail", pk=project.pk)
+    return render(request, "projects/create-project.html", {"form": form, "is_edit": True})
+
+
+@login_required
+def favorites(request):
+    projects = request.user.favorites.select_related("owner").prefetch_related("participants")
+    return render(request, "projects/favorite_projects.html", {"projects": projects})
+
+
+@login_required
+@require_POST
 def toggle_favorite(request, pk):
-    if request.method != "POST":
-        return JsonResponse(
-            {"status": ERROR_STATUS, "message": METHOD_NOT_ALLOWED_MESSAGE},
-            status=HTTPStatus.METHOD_NOT_ALLOWED,
-        )
-
     project = get_object_or_404(Project, pk=pk)
-
-    if request.user.favorites.filter(pk=project.pk).exists():
-        request.user.favorites.remove(project)
-        favorited = False
+    if project.liked_by.filter(pk=request.user.pk).exists():
+        project.liked_by.remove(request.user)
+        value = False
     else:
-        request.user.favorites.add(project)
-        favorited = True
-
-    return JsonResponse(
-        {"status": OK_STATUS, "favorited": favorited},
-        status=HTTPStatus.OK,
-    )
+        project.liked_by.add(request.user)
+        value = True
+    return JsonResponse({"status": "ok", "favorite": value})
 
 
 @login_required
+@require_POST
 def toggle_participate(request, pk):
-    if request.method != "POST":
-        return JsonResponse(
-            {"status": ERROR_STATUS, "message": METHOD_NOT_ALLOWED_MESSAGE},
-            status=HTTPStatus.METHOD_NOT_ALLOWED,
-        )
-
     project = get_object_or_404(Project, pk=pk)
-
+    if project.owner_id == request.user.id:
+        return JsonResponse({"status": "error"}, status=403)
     if project.participants.filter(pk=request.user.pk).exists():
         project.participants.remove(request.user)
         participant = False
     else:
         project.participants.add(request.user)
         participant = True
+    return JsonResponse({"status": "ok", "participant": participant})
 
-    return JsonResponse(
-        {"status": OK_STATUS, "participant": participant},
-        status=HTTPStatus.OK,
-    )
+
+@login_required
+@require_POST
+def complete_project(request, pk):
+    project = get_object_or_404(Project, pk=pk, owner=request.user)
+    project.status = Project.STATUS_CLOSED
+    project.save(update_fields=["status", "updated_at"])
+    return JsonResponse({"status": "ok"})
+
+
+@require_GET
+def skills_search(request):
+    query = request.GET.get("q", "").strip()
+    skills = Skill.objects.all()
+    if query:
+        skills = skills.filter(name__icontains=query)
+    return JsonResponse(list(skills.values("id", "name")[:10]), safe=False)
+
+
+@login_required
+@require_POST
+def add_project_skill(request, pk):
+    project = get_object_or_404(Project, pk=pk, owner=request.user)
+    payload = json.loads(request.body or "{}")
+    skill_id = payload.get("skill_id")
+    name = str(payload.get("name", "")).strip()
+    if skill_id:
+        skill = get_object_or_404(Skill, pk=skill_id)
+    elif name:
+        skill, _ = Skill.objects.get_or_create(name=name)
+    else:
+        return JsonResponse({"error": "empty"}, status=400)
+    project.skills.add(skill)
+    return JsonResponse({"id": skill.id, "name": skill.name})
+
+
+@login_required
+@require_POST
+def remove_project_skill(request, pk, skill_id):
+    project = get_object_or_404(Project, pk=pk, owner=request.user)
+    project.skills.remove(skill_id)
+    return JsonResponse({"status": "ok"})

@@ -1,25 +1,19 @@
-﻿from django.urls import path
+from django.urls import path
 
-from .views import (
-    FavoriteProjectListView,
-    ProjectCreateView,
-    ProjectDetailView,
-    ProjectListView,
-    ProjectUpdateView,
-    complete_project,
-    toggle_favorite,
-    toggle_participate,
-)
+from . import views
 
 app_name = "projects"
 
 urlpatterns = [
-    path("list/", ProjectListView.as_view(), name="list"),
-    path("favorites/", FavoriteProjectListView.as_view(), name="favorites"),
-    path("create-project/", ProjectCreateView.as_view(), name="create-project"),
-    path("<int:pk>/", ProjectDetailView.as_view(), name="detail"),
-    path("<int:pk>/edit/", ProjectUpdateView.as_view(), name="edit"),
-    path("<int:pk>/complete/", complete_project, name="complete"),
-    path("<int:pk>/toggle-favorite/", toggle_favorite, name="toggle-favorite"),
-    path("<int:pk>/toggle-participate/", toggle_participate, name="toggle-participate"),
+    path("list/", views.project_list, name="list"),
+    path("create-project/", views.create_project, name="create"),
+    path("favorites/", views.favorites, name="favorites"),
+    path("skills/", views.skills_search, name="skills"),
+    path("<int:pk>/", views.project_detail, name="detail"),
+    path("<int:pk>/edit/", views.edit_project, name="edit"),
+    path("<int:pk>/toggle-favorite/", views.toggle_favorite, name="toggle_favorite"),
+    path("<int:pk>/toggle-participate/", views.toggle_participate, name="toggle_participate"),
+    path("<int:pk>/complete/", views.complete_project, name="complete"),
+    path("<int:pk>/skills/add/", views.add_project_skill, name="add_skill"),
+    path("<int:pk>/skills/<int:skill_id>/remove/", views.remove_project_skill, name="remove_skill"),
 ]

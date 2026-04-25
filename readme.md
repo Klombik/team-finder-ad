@@ -1,60 +1,24 @@
-# TeamFinder
+# Team Finder
 
-TeamFinder — Django-приложение для поиска участников в проекты.
+Team Finder — Django-приложение для поиска участников в проекты.
 
-## Возможности
-
-- регистрация и вход по email и паролю;
-- просмотр списка проектов;
-- просмотр списка пользователей;
-- публичный профиль пользователя;
-- редактирование профиля;
-- создание и редактирование проектов;
-- завершение проекта владельцем;
-- участие в чужих проектах;
-- добавление проектов в избранное;
-- страница избранных проектов;
-- фильтрация пользователей по связям с проектами;
-- PostgreSQL;
-- Docker Compose;
-- тестовые данные через seed-команды.
-
-## Запуск через Docker
-
-Скопировать переменные окружения:
+## Запуск
 
 ```bash
 cp .env_example .env
-```
-
-Запустить проект:
-
-```bash
 docker compose up --build
 ```
 
-Открыть проект:
+Сайт будет доступен по адресу:
 
 ```text
 http://localhost:8000
 ```
 
-## Загрузка тестовых данных
+## Админ-панель
 
 ```bash
-docker compose --profile seed up seed
-```
-
-После загрузки данных можно перезапустить сервер:
-
-```bash
-docker compose up --build
-```
-
-## Создание администратора
-
-```bash
-docker compose exec server python manage.py createsuperuser
+docker compose exec web python manage.py createsuperuser
 ```
 
 Админ-панель:
@@ -63,18 +27,24 @@ docker compose exec server python manage.py createsuperuser
 http://localhost:8000/admin/
 ```
 
-## Переключение варианта
+## Тестовые данные
 
-В файле `.env` указать значение:
+Тестовые пользователи и проекты создаются автоматически при запуске контейнера командой `seed_demo`.
 
-```env
-TASK_VERSION=1
-```
-
-Доступные значения:
+Данные для входа:
 
 ```text
-1, 2, 3
+anna@example.com / password123
+ivan@example.com / password123
+maria@example.com / password123
+```
+
+## Полезные команды
+
+```bash
+docker compose exec web python manage.py migrate
+docker compose exec web python manage.py seed_demo
+docker compose exec web flake8
 ```
 
 ## Остановка
@@ -83,7 +53,7 @@ TASK_VERSION=1
 docker compose down
 ```
 
-## Полная очистка базы и media volume
+Чтобы удалить базу вместе с volume:
 
 ```bash
 docker compose down -v

@@ -1,23 +1,15 @@
-﻿from django.urls import path
+from django.urls import path
 
-from .views import (
-    EmailLoginView,
-    RegisterView,
-    UserDetailView,
-    UserListView,
-    UserPasswordChangeView,
-    UserUpdateView,
-    logout_view,
-)
+from . import views
 
 app_name = "users"
 
 urlpatterns = [
-    path("register/", RegisterView.as_view(), name="register"),
-    path("login/", EmailLoginView.as_view(), name="login"),
-    path("logout/", logout_view, name="logout"),
-    path("change-password/", UserPasswordChangeView.as_view(), name="change-password"),
-    path("list/", UserListView.as_view(), name="list"),
-    path("edit-profile/", UserUpdateView.as_view(), name="edit-profile"),
-    path("<int:pk>/", UserDetailView.as_view(), name="detail"),
+    path("register/", views.register_view, name="register"),
+    path("login/", views.login_view, name="login"),
+    path("logout/", views.logout_view, name="logout"),
+    path("list/", views.user_list, name="list"),
+    path("edit-profile/", views.edit_profile, name="edit_profile"),
+    path("change-password/", views.change_password, name="change_password"),
+    path("<int:pk>/", views.user_detail, name="detail"),
 ]
