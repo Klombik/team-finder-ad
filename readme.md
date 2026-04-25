@@ -1,60 +1,85 @@
 # Team Finder
 
-Team Finder — Django-приложение для поиска участников в проекты.
+Веб-приложение для поиска команды и совместной работы над проектами.
 
-## Запуск
+## Запуск проекта
+
+1. Создайте файл `.env` на основе `.env_example`:
 
 ```bash
 cp .env_example .env
+```
+
+2. Запустите контейнеры:
+
+```bash
 docker compose up --build
 ```
 
-Сайт будет доступен по адресу:
+После запуска приложение будет доступно по адресу:
 
-```text
+```
 http://localhost:8000
 ```
 
-## Админ-панель
+---
+
+## Создание администратора
+
+Для доступа к админ-панели выполните:
 
 ```bash
 docker compose exec web python manage.py createsuperuser
 ```
 
-Админ-панель:
+Админка доступна по адресу:
 
-```text
-http://localhost:8000/admin/
+```
+http://localhost:8000/admin
 ```
 
-## Тестовые данные
+---
 
-Тестовые пользователи и проекты создаются автоматически при запуске контейнера командой `seed_demo`.
+## Заполнение тестовыми данными
 
-Данные для входа:
-
-```text
-anna@example.com / password123
-ivan@example.com / password123
-maria@example.com / password123
-```
-
-## Полезные команды
+Чтобы добавить демонстрационные данные:
 
 ```bash
-docker compose exec web python manage.py migrate
 docker compose exec web python manage.py seed_demo
-docker compose exec web flake8
 ```
 
-## Остановка
+После этого появятся пользователи и проекты для тестирования.
+
+---
+
+## Остановка проекта
 
 ```bash
 docker compose down
 ```
 
-Чтобы удалить базу вместе с volume:
+Если нужно удалить данные базы:
 
 ```bash
 docker compose down -v
 ```
+
+---
+
+## Технологии
+
+* Django
+* PostgreSQL
+* Docker / Docker Compose
+
+---
+
+## Возможности
+
+* регистрация и авторизация пользователей
+* создание и редактирование проектов
+* просмотр профилей пользователей
+* участие в проектах
+* управление своими данными
+
+---
