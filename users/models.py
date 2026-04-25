@@ -31,6 +31,7 @@ class User(AbstractUser):
     github_url = models.URLField(blank=True)
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     objects = UserManager()
 

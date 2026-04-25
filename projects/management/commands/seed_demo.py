@@ -7,34 +7,82 @@ from users.models import User
 class Command(BaseCommand):
     def handle(self, *args, **options):
         users_data = [
-            ("anna@example.com", "Анна", "Смирнова", "Frontend-разработчик", "+79990000001"),
-            ("ivan@example.com", "Иван", "Петров", "Backend-разработчик", "+79990000002"),
-            ("maria@example.com", "Мария", "Иванова", "UI/UX-дизайнер", "+79990000003"),
+            (
+                "dev_alex@example.com",
+                "Алексей",
+                "Морозов",
+                "Fullstack-разработчик",
+                "+79991110001",
+            ),
+            (
+                "teamcoder@example.com",
+                "Максим",
+                "Волков",
+                "Python-разработчик",
+                "+79991110002",
+            ),
+            (
+                "design_lena@example.com",
+                "Елена",
+                "Кузнецова",
+                "Дизайнер интерфейсов",
+                "+79991110003",
+            ),
         ]
+
         users = []
         for email, name, surname, about, phone in users_data:
             user, created = User.objects.get_or_create(
                 email=email,
-                defaults={"name": name, "surname": surname, "about": about, "phone": phone},
+                defaults={
+                    "name": name,
+                    "surname": surname,
+                    "about": about,
+                    "phone": phone,
+                },
             )
             if created:
                 user.set_password("password123")
                 user.save()
             users.append(user)
 
-        skill_names = ["Django", "React", "PostgreSQL", "Docker", "Figma"]
+        skill_names = [
+            "Django",
+            "React",
+            "PostgreSQL",
+            "Docker",
+            "Figma",
+            "Python",
+            "TypeScript",
+        ]
         skills = {name: Skill.objects.get_or_create(name=name)[0] for name in skill_names}
 
         projects_data = [
-            (users[0], "Платформа для поиска команды", "Сервис для поиска участников в учебные проекты."),
-            (users[1], "API для задач", "Backend для трекера задач с ролями и статусами."),
-            (users[2], "Дизайн-система", "Набор компонентов и правил для единого интерфейса."),
+            (
+                users[0],
+                "Сервис подбора команды",
+                "Приложение для поиска людей в учебные и pet-проекты.",
+            ),
+            (
+                users[1],
+                "Планировщик командных задач",
+                "Backend-сервис для управления задачами, ролями и участниками.",
+            ),
+            (
+                users[2],
+                "UI-kit для веб-приложений",
+                "Набор визуальных компонентов для единого оформления страниц.",
+            ),
         ]
+
         for owner, name, description in projects_data:
             project, _ = Project.objects.get_or_create(
                 owner=owner,
                 name=name,
-                defaults={"description": description, "github_url": "https://github.com/"},
+                defaults={
+                    "description": description,
+                    "github_url": "https://github.com/",
+                },
             )
             project.skills.add(skills["Django"], skills["Docker"])
             for user in users:
@@ -46,4 +94,4 @@ class Command(BaseCommand):
             users[0].favorites.add(projects[-1])
             users[1].favorites.add(projects[0])
 
-        self.stdout.write(self.style.SUCCESS("Demo data is ready"))
+        self.stdout.write(self.style.SUCCESS("Демонстрационные данные добавлены"))
