@@ -1,13 +1,18 @@
 import json
+from http import HTTPStatus
 
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
+from team_finder.utils import paginate_queryset
+
 from .forms import ProjectForm
 from .models import Project, Skill
+
+PROJECTS_PER_PAGE = 12
+SKILLS_SEARCH_LIMIT = 10
 
 
 def project_list(request):
@@ -15,8 +20,7 @@ def project_list(request):
     active_skill = request.GET.get("skill")
     if active_skill:
         projects = projects.filter(skills__name=active_skill)
-    paginator = Paginator(projects.distinct(), 12)
-    page = paginator.get_page(request.GET.get("page"))
+    page = paginate_queryset(request, projects.distinct(), PROJECTS_PER_PAGE)
     return render(
         request,
         "projects/project_list.html",
@@ -82,7 +86,7 @@ def toggle_favorite(request, pk):
 def toggle_participate(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if project.owner_id == request.user.id:
-        return JsonResponse({"status": "error"}, status=403)
+        return JsonResponse({"status": "error"}, status=HTTPStatus.FORBIDDEN)
     if project.participants.filter(pk=request.user.pk).exists():
         project.participants.remove(request.user)
         participant = False
@@ -107,7 +111,7 @@ def skills_search(request):
     skills = Skill.objects.all()
     if query:
         skills = skills.filter(name__icontains=query)
-    return JsonResponse(list(skills.values("id", "name")[:10]), safe=False)
+    return JsonResponse(list(skills.values("id", "name")[:SKILLS_SEARCH_LIMIT]), safe=False)
 
 
 @login_required
@@ -122,7 +126,7 @@ def add_project_skill(request, pk):
     elif name:
         skill, _ = Skill.objects.get_or_create(name=name)
     else:
-        return JsonResponse({"error": "empty"}, status=400)
+        return JsonResponse({"error": "empty"}, status=HTTPStatus.BAD_REQUEST)
     project.skills.add(skill)
     return JsonResponse({"id": skill.id, "name": skill.name})
 

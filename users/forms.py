@@ -4,6 +4,8 @@ from django.contrib.auth.forms import PasswordChangeForm
 
 from .models import User
 
+ABOUT_TEXTAREA_ROWS = 5
+
 
 class RegisterForm(forms.ModelForm):
     password = forms.CharField(label="Пароль", widget=forms.PasswordInput)
@@ -61,7 +63,7 @@ class ProfileForm(forms.ModelForm):
             "github_url": "GitHub",
         }
         widgets = {
-            "about": forms.Textarea(attrs={"rows": 5}),
+            "about": forms.Textarea(attrs={"rows": ABOUT_TEXTAREA_ROWS}),
         }
 
 

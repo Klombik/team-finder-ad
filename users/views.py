@@ -1,12 +1,19 @@
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
-from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 
 from projects.models import Project
+from team_finder.utils import paginate_queryset
+
 from .forms import EmailLoginForm, ProfileForm, RegisterForm
 from .models import User
+
+USERS_PER_PAGE = 12
+FILTER_OWNERS_OF_FAVORITES = "owners-of-favorite-projects"
+FILTER_OWNERS_OF_PARTICIPATING = "owners-of-participating-projects"
+FILTER_INTERESTED_IN_MY_PROJECTS = "interested-in-my-projects"
+FILTER_PARTICIPANTS_OF_MY_PROJECTS = "participants-of-my-projects"
 
 
 def register_view(request):
@@ -54,33 +61,36 @@ def change_password(request):
     return render(request, "users/change_password.html", {"form": form})
 
 
+def apply_user_filter(users, current_user, active_filter):
+    if active_filter == FILTER_OWNERS_OF_FAVORITES:
+        favorite_owner_ids = current_user.favorites.values_list("owner_id", flat=True)
+        return users.filter(id__in=favorite_owner_ids)
+    if active_filter == FILTER_OWNERS_OF_PARTICIPATING:
+        owner_ids = Project.objects.filter(participants=current_user).values_list("owner_id", flat=True)
+        return users.filter(id__in=owner_ids)
+    if active_filter == FILTER_INTERESTED_IN_MY_PROJECTS:
+        admirer_ids = User.objects.filter(favorites__owner=current_user).values_list("id", flat=True)
+        return users.filter(id__in=admirer_ids)
+    if active_filter == FILTER_PARTICIPANTS_OF_MY_PROJECTS:
+        member_ids = User.objects.filter(participating_projects__owner=current_user).values_list(
+            "id", flat=True
+        )
+        return users.filter(id__in=member_ids)
+    return users
+
+
 def user_list(request):
     users = User.objects.all().order_by("-created_at")
     active_filter = request.GET.get("filter")
 
     if request.user.is_authenticated and active_filter:
-        current_user = request.user
-        if active_filter == "owners-of-favorite-projects":
-            favorite_owner_ids = current_user.favorites.values_list("owner_id", flat=True)
-            users = users.filter(id__in=favorite_owner_ids)
-        elif active_filter == "owners-of-participating-projects":
-            owner_ids = Project.objects.filter(participants=current_user).values_list("owner_id", flat=True)
-            users = users.filter(id__in=owner_ids)
-        elif active_filter == "interested-in-my-projects":
-            admirer_ids = User.objects.filter(favorites__owner=current_user).values_list("id", flat=True)
-            users = users.filter(id__in=admirer_ids)
-        elif active_filter == "participants-of-my-projects":
-            member_ids = User.objects.filter(participating_projects__owner=current_user).values_list(
-                "id", flat=True
-            )
-            users = users.filter(id__in=member_ids)
+        users = apply_user_filter(users, request.user, active_filter)
 
     selected_skill = request.GET.get("skill")
     if selected_skill:
         users = users.filter(skills__name=selected_skill)
 
-    paginator = Paginator(users.distinct(), 12)
-    page = paginator.get_page(request.GET.get("page"))
+    page = paginate_queryset(request, users.distinct(), USERS_PER_PAGE)
     return render(
         request,
         "users/participants.html",
